@@ -1,0 +1,303 @@
+<template>
+  <v-card class="ma-1 rounded-lg" height="500" elevation="0" @contextmenu="show">
+
+    <!-- Start: marker market tab element -->
+    <template v-if="tabs.length">
+      <v-app-bar color="transparent" height="50" flat>
+        <v-tabs color="primary" v-model="eyelet" show-arrows>
+          <!-- <v-tab @click="getPairs(item)" v-for="item in tabs" :key="item" class="text-capitalize">{{ item }}</v-tab> -->
+          <v-tab v-for="item in tabs" :key="item" class="text-capitalize">{{ item }}</v-tab>
+        </v-tabs>
+      </v-app-bar>
+    </template>
+    <template v-else>
+      <v-layout style="height: 50px" wrap>
+        <v-flex/>
+        <v-flex class="text-center" align-self-center>
+          {{ $vuetify.lang.t('$vuetify.lang_60') }}
+        </v-flex>
+        <v-flex/>
+      </v-layout>
+    </template>
+    <!-- End: marker market tab element -->
+
+    <v-divider />
+
+    <!-- Start: pairs list element -->
+    <template v-if="markets.length">
+      <template v-if="markets.length">
+        <v-virtual-scroll @mouseover="hover = true" @mouseleave="hover = false" :class="hover ? '' : 'overflow-y-hidden'" bench="0" :items="items" height="393" item-height="56">
+          <template v-slot:default="{ item }">
+            <v-list-item :color="$vuetify.theme.dark ? 'grey darken-3' : 'deep-purple lighten-5'" :to="'/trade/' + item.base_unit + '-' + item.quote_unit + '?type=future'" :key="item.id" dense>
+              <v-list-item-avatar class="mr-2" size="30">
+                <v-img :src="$storages(['icon'], item.base_unit)"/>
+              </v-list-item-avatar>
+              <v-list-item-content>
+                <v-list-item-title><span :class="($vuetify.theme.dark ? 'white' : 'black') + '--text'">{{ item.base_unit.toUpperCase() }}/</span><span class="grey--text">{{ item.quote_unit.toUpperCase() }}</span></v-list-item-title>
+                <template v-if="item.status">
+                  <v-list-item-subtitle>{{ $decimal.format(item.price ? item.price : 0) }} {{ item.quote_unit.toUpperCase() }}</v-list-item-subtitle>
+                </template>
+                <template v-else>
+                  <v-list-item-subtitle class="red--text text-uppercase">{{ $vuetify.lang.t('$vuetify.lang_127') }}</v-list-item-subtitle>
+                </template>
+              </v-list-item-content>
+              <v-list-item-action>
+                <template v-if="item.status">
+                  <span :class="Math.sign(item.ratio) === -1 ? 'red--text' : 'teal--text'">{{ item.ratio ? (Math.sign(item.ratio) === -1 ? (item.ratio).toFixed(2) : `+${(item.ratio).toFixed(2)}`) : '+0.00' }}%</span>
+                </template>
+                <template v-else>
+                  <v-icon>
+                    mdi-power-cycle
+                  </v-icon>
+                </template>
+              </v-list-item-action>
+            </v-list-item>
+          </template>
+        </v-virtual-scroll>
+      </template>
+      <template v-else>
+        <v-layout style="height: 393px" wrap>
+          <v-flex/>
+          <v-flex class="text-center mx-5" align-self-center>
+            <div>
+              <v-icon size="50">
+                mdi-database-remove-outline
+              </v-icon>
+            </div>
+            <h4 class="text-overline">{{ $vuetify.lang.t('$vuetify.lang_49') }}</h4>
+          </v-flex>
+          <v-flex/>
+        </v-layout>
+      </template>
+    </template>
+    <template v-else-if="!overlay">
+      <v-layout style="height: 393px" wrap>
+        <v-flex/>
+        <v-flex class="text-center mx-5" align-self-center>
+          <div>
+            <v-icon size="50">
+              mdi-database-remove-outline
+            </v-icon>
+          </div>
+          <h4 class="text-overline">{{ $vuetify.lang.t('$vuetify.lang_48') }}</h4>
+        </v-flex>
+        <v-flex/>
+      </v-layout>
+    </template>
+    <!-- End: pairs list element -->
+
+    <!-- Start: pair search element -->
+    <template v-if="!overlay">
+      <v-divider />
+      <v-card-actions>
+        <v-text-field color="primary" v-model="search" dense hide-details outlined :label="$vuetify.lang.t('$vuetify.lang_50')" prepend-inner-icon="mdi-layers-search-outline" />
+      </v-card-actions>
+    </template>
+    <!-- End: pair search element -->
+
+    <!-- Start: menu markets full element -->
+    <v-menu v-model="menu" :position-x="x" :position-y="y" absolute content-class="elevation-1" max-height="304" offset-y>
+      <v-list>
+        <v-list-item-group v-model="eyelet">
+          <v-list-item :value="index" @click="getPairs(item)" v-for="(item, index) in markers" :key="item">
+            <v-list-item-avatar class="mr-2" size="30">
+              <v-img :src="$storages(['icon'], item)"/>
+            </v-list-item-avatar>
+            <v-list-item-title>{{ item }}</v-list-item-title>
+          </v-list-item>
+        </v-list-item-group>
+      </v-list>
+    </v-menu>
+    <!-- End: menu markets full element -->
+
+    <v-overlay absolute :color="$vuetify.theme.dark ? 'grey darken-4' : 'white'" opacity="0.8" :value="overlay">
+      <v-progress-circular color="yellow darken-3" indeterminate size="50" />
+    </v-overlay>
+
+  </v-card>
+</template>
+
+<script>
+
+  export default {
+    name: "v-component-future-market",
+    data() {
+      return {
+        x: 0,
+        y: 0,
+        menu: false,
+        hover: false,
+        search: null,
+        overlay: true,
+        eyelet: 0,
+        markers: [],
+        pairs: [],
+        tabs: [
+          this.$vuetify.lang.t('$vuetify.lang_64'),
+          this.$vuetify.lang.t('$vuetify.lang_369'),
+          this.$vuetify.lang.t('$vuetify.lang_368'),
+        ],
+        markets: [],
+      }
+    },
+    mounted() {
+      this.getPairs();
+      this.getMarkets();
+      /**
+       * Отслеживаем события бегущей строки, данные об торгах.
+       * @object {base_unit: string},
+       * @object {close: float},
+       * @object {high: float},
+       * @object {low: float},
+       * @object {open: float},
+       * @object {quote_unit: string},
+       * @object {time: int}
+       */
+      this.$publish.bind('trade/ticker:0', (data) => {
+        if (data.fields && data.fields.length > 1) {
+          this.pairs.filter((item) => {
+            if (
+
+              // Сверяем принадлежат ли новые события к данному активу,
+              // если аргументы совпадают то привязываем полученные данные из события к данному активу.
+              item.base_unit === data.fields[0].base_unit &&
+              item.quote_unit === data.fields[0].quote_unit
+
+            ) {
+              item.ratio = ((data.fields[0].close - data.fields[1].close) / data.fields[1].close) * 100;
+              item.price = data.fields[0].close;
+              return item;
+            }
+
+          });
+
+          // Sort pairs by index.
+          this.sort();
+        }
+      });
+
+    },
+    methods: {
+
+      /**
+       * @param e
+       */
+      show (e) {
+        e.preventDefault()
+        this.menu = false
+        this.x = e.clientX
+        this.y = e.clientY
+        this.$nextTick(() => {
+          this.menu = true
+        })
+      },
+
+      /**
+       * @param symbol
+       */
+      getPairs(symbol) {
+        this.overlay = true;
+
+        this.getMarkers();
+
+        let markers = this.markers.length;
+        this.$axios.$post(this.$api.provider.getPairs, { symbol: (symbol ?? this.parse.base())}).then((response) => {
+
+          if (!markers) {
+            this.eyelet = this.markers.indexOf(symbol ?? this.parse.base());
+          }
+
+          this.pairs = response.fields ?? [];
+          this.overlay = false;
+
+          // Sort pairs by index.
+          this.sort();
+        });
+      },
+      /** */
+      
+      getMarkets () {
+        this.overlay = true;
+
+        function isFuture (pair) {
+          const units = {
+            'usd': true,
+            'usdt': true,
+            'usdc': true,
+          }
+          return units[pair.quote_unit]
+        }
+        this.$axios.$post(this.$api.index.getMarkets, {})
+          .then((response) => {
+            this.overlay = false;
+            this.markets = response.fields ?? []
+            this.markets = this.markets.filter((e) => isFuture(e))
+          })
+      },
+
+      /**
+       *
+       */
+      getMarkers() {
+        this.$axios.$post(this.$api.provider.getMarkers).then((response) => {
+          this.markers = response.fields ?? [];
+
+          // Sort by symbol.
+          this.markers.map((item, index) => {
+            if (item === this.parse.base()) {
+              this.markers[index] = this.markers[0];
+              this.markers[0] = item
+            }
+          })
+        });
+      },
+
+      /**
+       *
+       */
+      sort() {
+        if (!this.hover) {
+          this.pairs.sort((a, b) => {
+            if (!a.ratio) {
+              a.ratio = 0
+            }
+            if (!b.ratio) {
+              b.ratio = 0
+            }
+            return b.ratio - a.ratio;
+          });
+        }
+      }
+    },
+    computed: {
+
+      /**
+       * @returns {{base: (function(): string)}}
+       */
+      parse() {
+        return {
+          base: () => {
+            return this.$route.params.unit.split('-')[0]
+          }
+        }
+      },
+
+      /**
+       * @returns {[]|*[]}
+       */
+      items() {
+        if(this.search) {
+          return this.markets.filter((item) => {
+            return item.base_unit.toUpperCase().includes(this.search.toUpperCase()) || item.quote_unit.toUpperCase().includes(this.search.toUpperCase())
+          });
+        } else {
+          return this.markets;
+        }
+      }
+    }
+  }
+</script>
+
+<style scoped>
+
+</style>
